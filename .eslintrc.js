@@ -30,6 +30,7 @@ module.exports = {
     'lib/',
     'dist/',
     'build/',
+    'header-check.js',
     '*.js',
   ],
   parser: '@typescript-eslint/parser',

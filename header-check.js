@@ -51,7 +51,7 @@ const verbose = process.argv.includes('--verbose') || process.argv.includes('-v'
  * Load license header from copyright.js
  */
 function loadLicenseHeader() {
-  const copyrightPath = path.join(__dirname, 'copyright.js');
+  const copyrightPath = path.join(__dirname, '.config', 'copyright.js');
   
   if (!fs.existsSync(copyrightPath)) {
     console.error(
