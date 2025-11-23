@@ -23,45 +23,8 @@ const colors = {
   cyan: '\x1b[36m',
 };
 
-// License headers for different file types
-const LICENSE_HEADERS = {
-  typescript: `/**
- * Copyright (c) 2021-2025 Red Hat, Inc.
- * This program and the accompanying materials are made
- * available under the terms of the Eclipse Public License 2.0
- * which is available at https://www.eclipse.org/legal/epl-2.0/
- *
- * SPDX-License-Identifier: EPL-2.0
- *
- * Contributors:
- *   Red Hat, Inc. - initial API and implementation
- */`,
-
-  shell: `#
-# Copyright (c) 2025 Red Hat, Inc.
-# This program and the accompanying materials are made
-# available under the terms of the Eclipse Public License 2.0
-# which is available at https://www.eclipse.org/legal/epl-2.0/
-#
-# SPDX-License-Identifier: EPL-2.0
-#
-# Contributors:
-#   Red Hat, Inc. - initial API and implementation
-`,
-
-  yaml: `#
-# Copyright (c) 2025 Red Hat, Inc.
-# This program and the accompanying materials are made
-# available under the terms of the Eclipse Public License 2.0
-# which is available at https://www.eclipse.org/legal/epl-2.0/
-#
-# SPDX-License-Identifier: EPL-2.0
-#
-# Contributors:
-#   Red Hat, Inc. - initial API and implementation
-#
-`,
-};
+// SPDX identifier to check for license presence
+const SPDX_IDENTIFIER = 'SPDX-License-Identifier: EPL-2.0';
 
 // Directories and file extensions to check
 const CHECK_PATHS = [
@@ -81,10 +44,79 @@ const CHECK_PATHS = [
 const IGNORE_DIRS = ['node_modules', 'dist', 'coverage', '.git', '.yarn'];
 const IGNORE_FILES = ['.d.ts'];
 
-const SPDX_IDENTIFIER = 'SPDX-License-Identifier: EPL-2.0';
-
 const fix = process.argv.includes('--fix');
 const verbose = process.argv.includes('--verbose') || process.argv.includes('-v');
+
+/**
+ * Load license header from copyright.js
+ */
+function loadLicenseHeader() {
+  const copyrightPath = path.join(__dirname, 'copyright.js');
+  
+  if (!fs.existsSync(copyrightPath)) {
+    console.error(
+      `${colors.red}❌ Error: copyright.js not found at ${copyrightPath}${colors.reset}`,
+    );
+    process.exit(1);
+  }
+
+  try {
+    const content = fs.readFileSync(copyrightPath, 'utf8');
+    
+    // Extract the comment block from copyright.js
+    const commentMatch = content.match(/\/\*\*([\s\S]*?)\*\//);
+    if (!commentMatch) {
+      console.error(
+        `${colors.red}❌ Error: Could not find license header in copyright.js${colors.reset}`,
+      );
+      process.exit(1);
+    }
+
+    return commentMatch[0];
+  } catch (error) {
+    console.error(
+      `${colors.red}❌ Error reading copyright.js: ${error.message}${colors.reset}`,
+    );
+    process.exit(1);
+  }
+}
+
+/**
+ * Convert TypeScript/JavaScript comment to shell/YAML comment format
+ * Replaces block comments with hash comments
+ */
+function convertToShellFormat(licenseHeader) {
+  // Remove /** and */ markers
+  let content = licenseHeader.replace(/^\/\*\*/, '').replace(/\*\/$/, '');
+  
+  // Convert each line: remove leading ' * ' and add '#'
+  const lines = content.split('\n');
+  const convertedLines = lines.map(line => {
+    // Remove leading whitespace and ' * ' or ' *'
+    const cleaned = line.replace(/^\s*\*\s?/, '');
+    if (cleaned === '') {
+      return '#';
+    }
+    return `# ${cleaned}`;
+  });
+
+  return convertedLines.join('\n');
+}
+
+/**
+ * Get license header for specific file type
+ */
+function getLicenseHeader(fileType) {
+  const baseHeader = loadLicenseHeader();
+
+  if (fileType === 'typescript') {
+    return baseHeader;
+  } else if (fileType === 'shell' || fileType === 'yaml') {
+    return convertToShellFormat(baseHeader);
+  }
+
+  return baseHeader;
+}
 
 /**
  * Check if file has a valid license header
@@ -105,11 +137,11 @@ function extractShebang(content) {
  * Add license header to file content
  */
 function addLicenseHeader(content, fileType) {
-  let header = LICENSE_HEADERS[fileType];
+  const header = getLicenseHeader(fileType);
 
   if (!header) {
     console.warn(
-      `${colors.yellow}⚠️  No license header template for type: ${fileType}${colors.reset}`,
+      `${colors.yellow}⚠️  Could not generate license header for type: ${fileType}${colors.reset}`,
     );
     return null;
   }
@@ -119,12 +151,17 @@ function addLicenseHeader(content, fileType) {
     const shebang = extractShebang(content);
     if (shebang) {
       const contentWithoutShebang = content.replace(/^#!.*\n/, '');
-      return shebang + header + '\n' + contentWithoutShebang;
+      return shebang + header + '\n\n' + contentWithoutShebang;
     }
-    return header + '\n' + content;
+    return header + '\n\n' + content;
   }
 
-  // Handle other file types
+  // Handle YAML files (workflows)
+  if (fileType === 'yaml') {
+    return header + '\n\n' + content;
+  }
+
+  // Handle TypeScript/JavaScript files
   return header + '\n\n' + content;
 }
 
