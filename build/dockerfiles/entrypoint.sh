@@ -16,7 +16,8 @@ echo 'Starting Che Server...'
 
 # Set default values
 export PORT=${PORT:-8080}
-export HOST=${HOST:-0.0.0.0}
+# Note: Don't export HOST - it may be set by Kubernetes to pod IP
+# Use CHE_HOST instead to override bind address (defaults to 0.0.0.0 in app)
 export NODE_ENV=${NODE_ENV:-production}
 export CHE_HOME=${CHE_HOME:-/home/user/che-server}
 
@@ -64,6 +65,7 @@ fi
 cd "${CHE_HOME}"
 
 # Start the server
-echo "Starting server on ${HOST}:${PORT} in ${NODE_ENV} mode"
+LISTEN_HOST=${CHE_HOST:-0.0.0.0}
+echo "Starting server on ${LISTEN_HOST}:${PORT} in ${NODE_ENV} mode"
 exec node --no-deprecation dist/index.js
 

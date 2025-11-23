@@ -62,7 +62,9 @@ const fastify = Fastify({
 });
 
 const PORT = Number(process.env.PORT) || 8080;
-const HOST = process.env.HOST || '0.0.0.0';
+// Always bind to 0.0.0.0 in containers (ignore system HOST env var)
+// Use CHE_HOST if you need to override the bind address
+const HOST = process.env.CHE_HOST || '0.0.0.0';
 
 // Register plugins and routes
 async function start() {
