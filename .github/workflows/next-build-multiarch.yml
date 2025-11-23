@@ -10,7 +10,7 @@
 #   Red Hat, Inc. - initial API and implementation
 #
 
-name: Eclipse Che Next - Multiarch Build
+name: Che Server Next Build
 
 on:
   workflow_dispatch:
