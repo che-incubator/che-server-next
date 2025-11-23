@@ -6,6 +6,6 @@ spec:
     cheServer:
       deployment:
         containers:
-          - image: 'docker.io/olexii4dockerid/che-server:next'
+          - image: 'quay.io/che-incubator/che-server-next:next'
             imagePullPolicy: Always
             name: che-server
