@@ -61,10 +61,12 @@ const fastify = Fastify({
   },
 });
 
-const PORT = Number(process.env.PORT) || 8080;
-// Always bind to 0.0.0.0 in containers (ignore system HOST env var)
-// Use CHE_HOST if you need to override the bind address
-const HOST = process.env.CHE_HOST || '0.0.0.0';
+// Use CHE_PORT if available (set by Che Operator)
+const PORT = Number(process.env.CHE_PORT || process.env.PORT) || 8080;
+// Always bind to 0.0.0.0 in containers
+// Note: CHE_HOST is the external hostname, not the bind address
+// Use CHE_BIND_ADDRESS or BIND_ADDRESS to override bind address
+const HOST = process.env.CHE_BIND_ADDRESS || process.env.BIND_ADDRESS || '0.0.0.0';
 
 // Register plugins and routes
 async function start() {
