@@ -17,8 +17,10 @@
  * 1. Bearer token (real Kubernetes/OpenShift token): Authorization: Bearer sha256~...
  * 2. Bearer token (test format): Authorization: Bearer <userid>:<username>
  * 3. Basic auth: Authorization: Basic <base64(username:userid)>
+ * 4. gap-auth header (from Eclipse Che Gateway)
  */
 import { FastifyRequest, FastifyReply, HookHandlerDoneFunction } from 'fastify';
+import * as k8s from '@kubernetes/client-node';
 import { logger } from '../utils/logger';
 import { getServiceAccountToken } from '../helpers/getServiceAccountToken';
 
@@ -70,6 +72,75 @@ function decodeJwtPayload(token: string): any {
 }
 
 /**
+ * Extract username from Kubernetes token using TokenReview API
+ * Returns null if TokenReview is not available or fails
+ */
+async function getUsernameFromK8sToken(token: string): Promise<string | null> {
+  try {
+    // Add timeout to prevent hanging
+    const timeoutPromise = new Promise<null>((resolve) => {
+      setTimeout(() => {
+        logger.warn('TokenReview API call timed out after 3 seconds');
+        resolve(null);
+      }, 3000);
+    });
+
+    const tokenReviewPromise = (async () => {
+      const kc = new k8s.KubeConfig();
+      kc.loadFromDefault();
+      
+      const authApi = kc.makeApiClient(k8s.AuthenticationV1Api);
+      
+      // Create TokenReview request
+      const tokenReview: k8s.V1TokenReview = {
+        apiVersion: 'authentication.k8s.io/v1',
+        kind: 'TokenReview',
+        spec: {
+          token: token,
+        },
+      };
+      
+      const response = await authApi.createTokenReview(tokenReview);
+      
+      // Check if token is authenticated
+      if (response.body.status?.authenticated) {
+        const username = response.body.status.user?.username;
+        if (username) {
+          logger.info(`✅ Extracted username from K8s token: ${username}`);
+          
+          // Clean up username for namespace usage
+          // Remove system: prefix and kube: prefix if present
+          let cleanUsername = username;
+          if (cleanUsername.startsWith('system:serviceaccount:')) {
+            // Extract service account name: system:serviceaccount:namespace:name -> name
+            const parts = cleanUsername.split(':');
+            cleanUsername = parts[parts.length - 1];
+          } else if (cleanUsername.startsWith('kube:')) {
+            cleanUsername = cleanUsername.replace(/^kube:/, '');
+          } else if (cleanUsername.includes(':')) {
+            // For other system accounts, take the last part
+            const parts = cleanUsername.split(':');
+            cleanUsername = parts[parts.length - 1];
+          }
+          
+          return cleanUsername;
+        }
+      }
+      
+      logger.warn('Token is not authenticated or has no username');
+      return null;
+    })();
+
+    // Race between TokenReview and timeout
+    const result = await Promise.race([tokenReviewPromise, timeoutPromise]);
+    return result;
+  } catch (error: any) {
+    logger.error({ error: error.message }, 'Failed to validate token with TokenReview API');
+    return null;
+  }
+}
+
+/**
  * Parse Bearer token format: Bearer <token>
  *
  * Supports three formats:
@@ -77,8 +148,8 @@ function decodeJwtPayload(token: string): any {
  * 2. Real Kubernetes/OpenShift tokens (e.g., sha256~...)
  * 3. Test format: userid:username
  */
-function parseBearerToken(token: string): Subject | null {
-  // Check if it's the test format (id:username)
+async function parseBearerToken(token: string): Promise<Subject | null> {
+  // Check if it's the test format (userid:username)
   const parts = token.split(':');
   if (parts.length === 2) {
     logger.info(`✅ Test token format: ${parts[0]}:${parts[1]}`);
@@ -90,10 +161,10 @@ function parseBearerToken(token: string): Subject | null {
     };
   }
 
-  // Try to decode as JWT token (from Eclipse Che Gateway)
+  // Try to decode as JWT token (from Eclipse Che Gateway or Keycloak)
   const jwtPayload = decodeJwtPayload(token);
   if (jwtPayload) {
-    // Extract user ID (UUID) from JWT sub claim
+    // JWT token - extract username directly from claims (no TokenReview needed)
     const userId = jwtPayload.sub;
 
     // Extract username from JWT claims (in order of preference)
@@ -114,7 +185,7 @@ function parseBearerToken(token: string): Subject | null {
     }
 
     logger.info(
-      `✅ JWT token decoded: sub="${userId}", name="${jwtPayload.name}", username="${jwtPayload.username}", preferred_username="${jwtPayload.preferred_username}", email="${jwtPayload.email}" -> using id="${userId}", username="${username}"`,
+      `✅ JWT token decoded: sub="${userId}", preferred_username="${jwtPayload.preferred_username}" -> id="${userId}", username="${username}"`,
     );
 
     return {
@@ -126,12 +197,27 @@ function parseBearerToken(token: string): Subject | null {
   }
 
   // Real Kubernetes/OpenShift token (no colons, not a JWT)
-  // Use as-is for Kubernetes API calls
-  logger.info(`✅ Kubernetes token (sha256~...): using kube-user`);
+  // Use TokenReview API to get the username
+  logger.info(`🔍 Kubernetes token detected (not JWT), querying TokenReview API for username`);
+  
+  const username = await getUsernameFromK8sToken(token);
+  
+  if (username) {
+    logger.info(`✅ Kubernetes token authenticated as: ${username}`);
+    return {
+      id: username,
+      userId: username,
+      userName: username,
+      token: token,
+    };
+  }
+  
+  // Fallback if TokenReview fails or is not available
+  logger.warn(`⚠️ TokenReview unavailable or failed, using 'che-user' as fallback`);
   return {
-    id: 'kube-user',
-    userId: 'kube-user',
-    userName: 'kube-user',
+    id: 'che-user',
+    userId: 'che-user',
+    userName: 'che-user',
     token: token,
   };
 }
@@ -161,7 +247,7 @@ function parseBasicAuth(credentials: string): Subject | null {
 export async function authenticate(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   // Check for Eclipse Che Gateway authentication first
   const gapAuth = request.headers['gap-auth'];
-  
+
   // DEBUG: Log all authentication headers
   logger.info('🔐 Authentication attempt:', {
     path: request.url,
@@ -170,7 +256,7 @@ export async function authenticate(request: FastifyRequest, reply: FastifyReply)
     hasAuthorization: !!request.headers.authorization,
     authType: request.headers.authorization?.split(' ')[0] || 'none',
   });
-  
+
   if (gapAuth) {
     // Gateway passes user identity via gap-auth header
     // Format: username (e.g., "che@eclipse.org" or "admin")
@@ -204,9 +290,11 @@ export async function authenticate(request: FastifyRequest, reply: FastifyReply)
 
   if (authHeader.startsWith('Bearer ')) {
     const token = authHeader.substring(7);
-    const subject = parseBearerToken(token);
+    const subject = await parseBearerToken(token);
     if (subject) {
-      logger.info(`✅ Bearer token authenticated as: userId="${subject.userId}", userName="${subject.userName}"`);
+      logger.info(
+        `✅ Bearer token authenticated as: userId="${subject.userId}", userName="${subject.userName}"`,
+      );
       request.subject = subject;
       return;
     }
@@ -214,7 +302,9 @@ export async function authenticate(request: FastifyRequest, reply: FastifyReply)
     const credentials = authHeader.substring(6);
     const subject = parseBasicAuth(credentials);
     if (subject) {
-      logger.info(`✅ Basic auth authenticated as: userId="${subject.userId}", userName="${subject.userName}"`);
+      logger.info(
+        `✅ Basic auth authenticated as: userId="${subject.userId}", userName="${subject.userName}"`,
+      );
       request.subject = subject;
       return;
     }
