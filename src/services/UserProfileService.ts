@@ -23,7 +23,7 @@ export interface UserProfile {
 
 /**
  * Service for managing User Profiles
- * 
+ *
  * Provides methods to get user profile information.
  * User profiles are stored as Secrets in the user's namespace.
  */
@@ -36,8 +36,11 @@ export class UserProfileService {
 
   /**
    * Get user profile from a namespace
+   * 
+   * If the user-profile Secret doesn't exist, returns a default profile
+   * extracted from the namespace name (e.g., "admin-che" -> username: "admin")
    */
-  async getUserProfile(namespace: string): Promise<UserProfile | undefined> {
+  async getUserProfile(namespace: string): Promise<UserProfile> {
     try {
       const response = await this.coreV1Api.readNamespacedSecret(
         USER_PROFILE_SECRET_NAME,
@@ -46,17 +49,40 @@ export class UserProfileService {
 
       const data = response.body.data;
       if (!data) {
-        throw new Error('User profile data is empty');
+        logger.info({ namespace }, 'User profile secret exists but has no data, returning default');
+        return this.getDefaultProfile(namespace);
       }
 
       return {
         username: Buffer.from(data.name || '', 'base64').toString(),
         email: Buffer.from(data.email || '', 'base64').toString(),
       };
-    } catch (error) {
+    } catch (error: any) {
+      // Check if it's a 404 (Secret not found)
+      const statusCode = error.statusCode || error.response?.statusCode;
+      
+      if (statusCode === 404) {
+        logger.info({ namespace }, `User profile secret not found, returning default profile`);
+        return this.getDefaultProfile(namespace);
+      }
+
+      // For other errors (403, 500, etc.), log and re-throw
       logger.error({ error, namespace }, 'Error getting user profile');
       throw error;
     }
   }
-}
 
+  /**
+   * Get default profile from namespace name
+   * Extracts username from namespace (e.g., "admin-che" -> "admin")
+   */
+  private getDefaultProfile(namespace: string): UserProfile {
+    // Extract username from namespace (remove "-che" suffix if present)
+    const username = namespace.replace(/-che$/, '');
+    
+    return {
+      username: username,
+      email: `${username}@che.local`,
+    };
+  }
+}
