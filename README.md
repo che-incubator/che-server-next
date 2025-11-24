@@ -829,7 +829,7 @@ spec:
     cheServer:
       deployment:
         containers:
-          - image: 'docker.io/olexii4dockerid/che-server:next'
+          - image: 'quay.io/che-incubator/che-server-next:next'
             imagePullPolicy: Always
             name: che-server
 ```
@@ -905,7 +905,7 @@ kubectl get deployment che -n eclipse-che -o jsonpath='{.spec.template.spec.cont
 
 Expected output:
 ```
-docker.io/olexii4dockerid/che-server:next
+quay.io/che-incubator/che-server-next:next
 ```
 
 ### Troubleshooting
@@ -916,7 +916,7 @@ docker.io/olexii4dockerid/che-server:next
 kubectl describe pod -n eclipse-che -l app=che
 
 # Verify image exists in registry
-docker pull docker.io/olexii4dockerid/che-server:next
+docker pull quay.io/che-incubator/che-server-next:next
 ```
 
 **Update Not Applied:**
