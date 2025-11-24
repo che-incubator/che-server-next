@@ -10,7 +10,7 @@
  *   Red Hat, Inc. - initial API and implementation
  */
 
-import Fastify from 'fastify';
+import Fastify, { FastifyInstance } from 'fastify';
 import fastifyCors from '@fastify/cors';
 import dotenv from 'dotenv';
 import { authenticate, requireAuth } from './middleware/auth';
@@ -135,32 +135,36 @@ async function start() {
     await fastify.register(
       async apiInstance => {
         // Root API endpoint - returns API info (no auth required for CORS preflight)
-        apiInstance.get('/', {
-          schema: {
-            tags: ['api'],
-            summary: 'API root endpoint',
-            description: 'Returns API information and available endpoints',
-            response: {
-              200: {
-                description: 'API information',
-                type: 'object',
-                properties: {
-                  name: { type: 'string' },
-                  version: { type: 'string' },
-                  implementation: { type: 'string' },
-                  docs: { type: 'string' },
+        apiInstance.get(
+          '/',
+          {
+            schema: {
+              tags: ['api'],
+              summary: 'API root endpoint',
+              description: 'Returns API information and available endpoints',
+              response: {
+                200: {
+                  description: 'API information',
+                  type: 'object',
+                  properties: {
+                    name: { type: 'string' },
+                    version: { type: 'string' },
+                    implementation: { type: 'string' },
+                    docs: { type: 'string' },
+                  },
                 },
               },
             },
           },
-        }, async (request, reply) => {
-          return reply.code(200).send({
-            name: 'Eclipse Che Server API',
-            version: '7.x',
-            implementation: 'Node.js/Fastify',
-            docs: '/api/docs',
-          });
-        });
+          async (request, reply) => {
+            return reply.code(200).send({
+              name: 'Eclipse Che Server API',
+              version: '7.x',
+              implementation: 'Node.js/Fastify',
+              docs: '/api/docs',
+            });
+          },
+        );
 
         await registerNamespaceRoutes(apiInstance);
         await registerFactoryRoutes(apiInstance);
@@ -189,37 +193,6 @@ async function start() {
       { prefix: '/api' },
     );
 
-    // ALSO register the same routes with /dashboard/api prefix for Eclipse Che Dashboard compatibility
-    // Eclipse Che Dashboard frontend expects API endpoints at /dashboard/api/*
-    await fastify.register(
-      async dashboardApiInstance => {
-        await registerNamespaceRoutes(dashboardApiInstance);
-        await registerFactoryRoutes(dashboardApiInstance);
-        await registerOAuthRoutes(dashboardApiInstance);
-        await registerScmRoutes(dashboardApiInstance);
-        await registerDataResolverRoutes(dashboardApiInstance);
-        await registerClusterInfoRoutes(dashboardApiInstance);
-        await registerClusterConfigRoutes(dashboardApiInstance);
-        await registerServerConfigRoutes(dashboardApiInstance);
-        await registerDevWorkspaceRoutes(dashboardApiInstance);
-        await registerDevWorkspaceTemplateRoutes(dashboardApiInstance);
-        await registerDevWorkspaceResourcesRoutes(dashboardApiInstance);
-        await registerDevWorkspaceClusterRoutes(dashboardApiInstance);
-        await registerPodsRoutes(dashboardApiInstance);
-        await registerEventsRoutes(dashboardApiInstance);
-        await registerEditorsRoutes(dashboardApiInstance);
-        await registerUserProfileRoutes(dashboardApiInstance);
-        await registerSshKeysRoutes(dashboardApiInstance);
-        await registerPersonalAccessTokenRoutes(dashboardApiInstance);
-        await registerGitConfigRoutes(dashboardApiInstance);
-        await registerDockerConfigRoutes(dashboardApiInstance);
-        await registerWorkspacePreferencesRoutes(dashboardApiInstance);
-        await registerGettingStartedSampleRoutes(dashboardApiInstance);
-        await registerSystemRoutes(dashboardApiInstance);
-      },
-      { prefix: '/dashboard/api' },
-    );
-
     // Health check endpoints for Kubernetes
     fastify.get('/healthz', async (request, reply) => {
       return reply.code(200).send({ status: 'ok' });
@@ -231,136 +204,6 @@ async function start() {
 
     fastify.get('/livez', async (request, reply) => {
       return reply.code(200).send({ status: 'alive' });
-    });
-
-    // API root endpoint - list all root resources (matching Java Che Server format)
-    // NOTE: OPTIONS requests are handled automatically by @fastify/cors plugin
-    
-    fastify.get('/api', async (request, reply) => {
-      return reply.code(200).send({
-        rootResources: [
-          {
-            path: '/kubernetes/namespace',
-            regex: '/kubernetes/namespace(/.*)?',
-            fqn: 'namespaceRoutes.ts',
-          },
-          {
-            path: '/oauth',
-            regex: '/oauth(/.*)?',
-            fqn: 'oauthRoutes.ts',
-          },
-          {
-            path: '/factory',
-            regex: '/factory(/.*)?',
-            fqn: 'factoryRoutes.ts',
-          },
-          {
-            path: '/scm',
-            regex: '/scm(/.*)?',
-            fqn: 'scmRoutes.ts',
-          },
-          {
-            path: '/system',
-            regex: '/system(/.*)?',
-            fqn: 'systemRoutes.ts',
-          },
-          {
-            path: '/cluster-info',
-            regex: '/cluster-info',
-            fqn: 'clusterInfoRoutes.ts',
-          },
-          {
-            path: '/cluster-config',
-            regex: '/cluster-config',
-            fqn: 'clusterConfigRoutes.ts',
-          },
-          {
-            path: '/server-config',
-            regex: '/server-config',
-            fqn: 'serverConfigRoutes.ts',
-          },
-          {
-            path: '/namespace/:namespace/devworkspaces',
-            regex: '/namespace/[^/]+/devworkspaces(/.*)?',
-            fqn: 'devworkspaceRoutes.ts',
-          },
-          {
-            path: '/namespace/:namespace/devworkspace-templates',
-            regex: '/namespace/[^/]+/devworkspace-templates(/.*)?',
-            fqn: 'devworkspaceTemplateRoutes.ts',
-          },
-          {
-            path: '/devworkspace-resources',
-            regex: '/devworkspace-resources',
-            fqn: 'devworkspaceResourcesRoutes.ts',
-          },
-          {
-            path: '/devworkspace/running-workspaces-cluster-limit-exceeded',
-            regex: '/devworkspace/running-workspaces-cluster-limit-exceeded',
-            fqn: 'devworkspaceClusterRoutes.ts',
-          },
-          {
-            path: '/namespace/:namespace/pods',
-            regex: '/namespace/[^/]+/pods',
-            fqn: 'podsRoutes.ts',
-          },
-          {
-            path: '/namespace/:namespace/events',
-            regex: '/namespace/[^/]+/events',
-            fqn: 'eventsRoutes.ts',
-          },
-          {
-            path: '/editors',
-            regex: '/editors(/.*)?',
-            fqn: 'editorsRoutes.ts',
-          },
-          {
-            path: '/userprofile/:namespace',
-            regex: '/userprofile/[^/]+',
-            fqn: 'userProfileRoutes.ts',
-          },
-          {
-            path: '/namespace/:namespace/ssh',
-            regex: '/namespace/[^/]+/ssh(/.*)?',
-            fqn: 'sshKeysRoutes.ts',
-          },
-          {
-            path: '/namespace/:namespace/personal-access-token',
-            regex: '/namespace/[^/]+/personal-access-token(/.*)?',
-            fqn: 'personalAccessTokenRoutes.ts',
-          },
-          {
-            path: '/namespace/:namespace/gitconfig',
-            regex: '/namespace/[^/]+/gitconfig',
-            fqn: 'gitConfigRoutes.ts',
-          },
-          {
-            path: '/namespace/:namespace/dockerconfig',
-            regex: '/namespace/[^/]+/dockerconfig',
-            fqn: 'dockerConfigRoutes.ts',
-          },
-          {
-            path: '/workspace-preferences',
-            regex: '/workspace-preferences(/.*)?',
-            fqn: 'workspacePreferencesRoutes.ts',
-          },
-          {
-            path: '/getting-started-sample',
-            regex: '/getting-started-sample',
-            fqn: 'gettingStartedSampleRoutes.ts',
-          },
-          {
-            path: '/openapi.{type:json|yaml}',
-            regex: '/openapi\\.(json|yaml)',
-            fqn: 'swagger (built-in)',
-          },
-          {
-            path: '/',
-            regex: '(/.*)?',
-            fqn: 'index.ts (API Info)',
-          },
-        ],
-      });
     });
 
     // Global error handler
@@ -408,6 +251,7 @@ async function start() {
     logger.info(`   GET  http://localhost:${PORT}/api/namespace/:namespace/events`);
     logger.info(`   GET  http://localhost:${PORT}/api/editors`);
     logger.info(`   GET  http://localhost:${PORT}/api/editors/devfile?che-editor=<id>`);
+    logger.info(`\n   User:`);
     logger.info(`   GET  http://localhost:${PORT}/api/user/id`);
     logger.info(`   GET  http://localhost:${PORT}/api/userprofile/:namespace`);
     logger.info(`\n   Factory Resolver:`);
