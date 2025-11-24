@@ -26,7 +26,8 @@ import { getServiceAccountToken } from '../helpers/getServiceAccountToken';
  * User subject information extracted from authentication
  */
 export interface Subject {
-  userId: string;
+  id: string; // User ID (UUID from JWT sub claim or generated)
+  userId: string; // Username (for backwards compatibility)
   userName: string;
   token: string;
   isGatewayAuth?: boolean; // True if authenticated via Eclipse Che Gateway
@@ -77,12 +78,13 @@ function decodeJwtPayload(token: string): any {
  * 3. Test format: userid:username
  */
 function parseBearerToken(token: string): Subject | null {
-  // Check if it's the test format (userid:username)
+  // Check if it's the test format (id:username)
   const parts = token.split(':');
   if (parts.length === 2) {
     logger.info(`✅ Test token format: ${parts[0]}:${parts[1]}`);
     return {
-      userId: parts[0],
+      id: parts[0], // First part is the ID (UUID or identifier)
+      userId: parts[1], // Second part is the username
       userName: parts[1],
       token: token,
     };
@@ -91,11 +93,14 @@ function parseBearerToken(token: string): Subject | null {
   // Try to decode as JWT token (from Eclipse Che Gateway)
   const jwtPayload = decodeJwtPayload(token);
   if (jwtPayload) {
+    // Extract user ID (UUID) from JWT sub claim
+    const userId = jwtPayload.sub;
+
     // Extract username from JWT claims (in order of preference)
     // Check for name, username, preferred_username, or extract from email
     // Ignore "undefined" strings and null values
     let username = null;
-    
+
     if (jwtPayload.name && jwtPayload.name !== 'undefined') {
       username = jwtPayload.name;
     } else if (jwtPayload.username && jwtPayload.username !== 'undefined') {
@@ -107,12 +112,15 @@ function parseBearerToken(token: string): Subject | null {
     } else if (jwtPayload.sub) {
       username = jwtPayload.sub;
     }
-    
-    logger.info(`✅ JWT token decoded: name="${jwtPayload.name}", username="${jwtPayload.username}", preferred_username="${jwtPayload.preferred_username}", email="${jwtPayload.email}", sub="${jwtPayload.sub}" -> using username="${username}"`);
-    
+
+    logger.info(
+      `✅ JWT token decoded: sub="${userId}", name="${jwtPayload.name}", username="${jwtPayload.username}", preferred_username="${jwtPayload.preferred_username}", email="${jwtPayload.email}" -> using id="${userId}", username="${username}"`,
+    );
+
     return {
-      userId: username || 'che-user',
-      userName: username || 'che-user',
+      id: userId || username || 'che-user', // Prefer sub (UUID) as ID
+      userId: username || userId || 'che-user', // username for backwards compatibility
+      userName: username || userId || 'che-user',
       token: token,
     };
   }
@@ -121,6 +129,7 @@ function parseBearerToken(token: string): Subject | null {
   // Use as-is for Kubernetes API calls
   logger.info(`✅ Kubernetes token (sha256~...): using kube-user`);
   return {
+    id: 'kube-user',
     userId: 'kube-user',
     userName: 'kube-user',
     token: token,
@@ -139,7 +148,8 @@ function parseBasicAuth(credentials: string): Subject | null {
   }
 
   return {
-    userId: parts[1],
+    id: parts[1], // User ID (UUID or identifier)
+    userId: parts[0], // Username
     userName: parts[0],
     token: decoded,
   };
@@ -167,11 +177,14 @@ export async function authenticate(request: FastifyRequest, reply: FastifyReply)
     // Extract just the username part before @ if present
     const fullUsername = gapAuth as string;
     const username = fullUsername.split('@')[0];
-    
+
     logger.info(`✅ Using gap-auth: "${fullUsername}" -> username: "${username}"`);
-    
+
     // Use service account token for Kubernetes operations
+    // Note: gap-auth doesn't provide UUID, so we use username as ID
+    // In Eclipse Che, this would require a user database lookup
     request.subject = {
+      id: username, // No UUID available from gap-auth, use username
       userId: username,
       userName: username,
       token: '', // Service account token will be used by routes

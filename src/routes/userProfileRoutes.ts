@@ -26,6 +26,65 @@ interface NamespacedParams {
  */
 export async function registerUserProfileRoutes(fastify: FastifyInstance): Promise<void> {
   /**
+   * GET /api/user/id
+   *
+   * Get current user ID (UUID)
+   *
+   * This endpoint returns the UUID of the currently authenticated user.
+   * Compatible with Eclipse Che Server API: https://github.com/eclipse-che/che-server
+   *
+   * @returns {string} User UUID (e.g., "d4810a4f-169f-4da5-a8e0-d8dff7ecf959")
+   */
+  fastify.get(
+    '/user/id',
+    {
+      schema: {
+        tags: ['user'],
+        summary: 'Get current user ID (UUID)',
+        description:
+          'Returns the UUID of the currently authenticated user. This is extracted from the JWT sub claim or provided in the authentication token.',
+        security: [{ BearerAuth: [] }],
+        response: {
+          200: {
+            description: 'User UUID',
+            type: 'string',
+            examples: ['d4810a4f-169f-4da5-a8e0-d8dff7ecf959'],
+          },
+          401: {
+            description: 'Unauthorized',
+            type: 'object',
+            properties: {
+              error: { type: 'string' },
+              message: { type: 'string' },
+            },
+          },
+        },
+      },
+      onRequest: [fastify.authenticate, fastify.requireAuth],
+    },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      try {
+        if (!request.subject) {
+          return reply.code(401).send({
+            error: 'Unauthorized',
+            message: 'Authentication required',
+          });
+        }
+
+        // Return the user ID (UUID) from the authenticated subject
+        // This is extracted from JWT sub claim or provided in Bearer token format: uuid:username
+        return reply.code(200).send(request.subject.id);
+      } catch (error: any) {
+        fastify.log.error({ error }, 'Error getting user ID');
+        return reply.code(500).send({
+          error: 'Internal Server Error',
+          message: error.message || 'Failed to get user ID',
+        });
+      }
+    },
+  );
+
+  /**
    * GET /api/userprofile/:namespace
    *
    * Get user profile from a namespace
