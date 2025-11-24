@@ -30,14 +30,163 @@ interface TemplateBody {
 }
 
 /**
+ * DevWorkspaceTemplate schema for Swagger documentation
+ * Based on Eclipse Che Dashboard implementation:
+ * https://github.com/eclipse-che/che-dashboard/blob/main/packages/dashboard-frontend/src/services/devfileApi/devWorkspace/spec/template.ts
+ */
+const DEVWORKSPACE_TEMPLATE_SCHEMA = {
+  type: 'object',
+  properties: {
+    apiVersion: { type: 'string', description: 'API version (workspace.devfile.io/v1alpha2)' },
+    kind: { type: 'string', description: 'Resource kind (DevWorkspaceTemplate)' },
+    metadata: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Template name' },
+        namespace: { type: 'string', description: 'Kubernetes namespace' },
+        uid: { type: 'string', description: 'Unique identifier' },
+        resourceVersion: { type: 'string', description: 'Resource version' },
+        creationTimestamp: { type: 'string', description: 'Creation timestamp' },
+        generation: { type: 'number', description: 'Generation number' },
+        annotations: {
+          type: 'object',
+          additionalProperties: { type: 'string' },
+          description: 'Annotations including che.eclipse.org/* settings',
+        },
+        ownerReferences: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              apiVersion: { type: 'string' },
+              kind: { type: 'string' },
+              name: { type: 'string' },
+              uid: { type: 'string' },
+            },
+          },
+          description: 'Owner references (typically DevWorkspace)',
+        },
+      },
+    },
+    spec: {
+      type: 'object',
+      properties: {
+        commands: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              id: { type: 'string', description: 'Command identifier' },
+              apply: {
+                type: 'object',
+                properties: { component: { type: 'string' } },
+                description: 'Apply command configuration',
+              },
+              exec: {
+                type: 'object',
+                properties: {
+                  commandLine: { type: 'string', description: 'Command to execute' },
+                  component: { type: 'string', description: 'Component to run command in' },
+                },
+                description: 'Exec command configuration',
+              },
+            },
+          },
+          description: 'Commands to execute in the workspace',
+        },
+        components: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              name: { type: 'string', description: 'Component name' },
+              attributes: {
+                type: 'object',
+                additionalProperties: true,
+                description: 'Component attributes (controller.devfile.io/*)',
+              },
+              container: {
+                type: 'object',
+                properties: {
+                  image: { type: 'string', description: 'Container image' },
+                  command: { type: 'array', items: { type: 'string' }, description: 'Container command' },
+                  env: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        name: { type: 'string', description: 'Environment variable name' },
+                        value: { type: 'string', description: 'Environment variable value' },
+                      },
+                    },
+                    description: 'Environment variables',
+                  },
+                  memoryLimit: { type: 'string', description: 'Memory limit (e.g., 1024Mi)' },
+                  memoryRequest: { type: 'string', description: 'Memory request (e.g., 256Mi)' },
+                  cpuLimit: { type: 'string', description: 'CPU limit (e.g., 500m)' },
+                  cpuRequest: { type: 'string', description: 'CPU request (e.g., 30m)' },
+                  sourceMapping: { type: 'string', description: 'Source code mount path' },
+                  volumeMounts: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        name: { type: 'string', description: 'Volume name' },
+                        path: { type: 'string', description: 'Mount path' },
+                      },
+                    },
+                    description: 'Volume mounts',
+                  },
+                  endpoints: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        name: { type: 'string', description: 'Endpoint name' },
+                        targetPort: { type: 'number', description: 'Target port' },
+                        exposure: { type: 'string', description: 'Exposure type (public, internal)' },
+                        protocol: { type: 'string', description: 'Protocol (http, https, ws, wss)' },
+                        secure: { type: 'boolean', description: 'Use secure connection' },
+                        attributes: {
+                          type: 'object',
+                          additionalProperties: true,
+                          description: 'Endpoint attributes (cookiesAuthEnabled, urlRewriteSupported, etc.)',
+                        },
+                      },
+                    },
+                    description: 'Container endpoints',
+                  },
+                },
+                description: 'Container component configuration',
+              },
+              volume: { type: 'object', description: 'Volume component' },
+            },
+          },
+          description: 'Workspace components (containers, volumes)',
+        },
+        events: {
+          type: 'object',
+          properties: {
+            preStart: { type: 'array', items: { type: 'string' }, description: 'Commands before start' },
+            postStart: { type: 'array', items: { type: 'string' }, description: 'Commands after start' },
+            preStop: { type: 'array', items: { type: 'string' }, description: 'Commands before stop' },
+            postStop: { type: 'array', items: { type: 'string' }, description: 'Commands after stop' },
+          },
+          description: 'Lifecycle events',
+        },
+      },
+      description: 'Template specification',
+    },
+  },
+} as const;
+
+/**
  * Register DevWorkspaceTemplate routes
  *
  * Provides CRUD operations for DevWorkspaceTemplate custom resources.
  * Note: DELETE operation is excluded (only available in local-run mode in dashboard-backend).
  */
-export async function registerDevWorkspaceTemplateRoutes(
-  fastify: FastifyInstance,
-): Promise<void> {
+export async function registerDevWorkspaceTemplateRoutes(fastify: FastifyInstance): Promise<void> {
   /**
    * GET /api/namespace/:namespace/devworkspacetemplates
    *
@@ -62,7 +211,124 @@ export async function registerDevWorkspaceTemplateRoutes(
           200: {
             description: 'List of DevWorkspaceTemplates',
             type: 'array',
-            items: { type: 'object' },
+            items: {
+              type: 'object',
+              properties: {
+                apiVersion: { type: 'string' },
+                kind: { type: 'string' },
+                metadata: {
+                  type: 'object',
+                  properties: {
+                    name: { type: 'string' },
+                    namespace: { type: 'string' },
+                    uid: { type: 'string' },
+                    resourceVersion: { type: 'string' },
+                    creationTimestamp: { type: 'string' },
+                    generation: { type: 'number' },
+                    annotations: { type: 'object', additionalProperties: { type: 'string' } },
+                    ownerReferences: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          apiVersion: { type: 'string' },
+                          kind: { type: 'string' },
+                          name: { type: 'string' },
+                          uid: { type: 'string' },
+                        },
+                      },
+                    },
+                  },
+                },
+                spec: {
+                  type: 'object',
+                  properties: {
+                    commands: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          id: { type: 'string' },
+                          apply: { type: 'object', properties: { component: { type: 'string' } } },
+                          exec: {
+                            type: 'object',
+                            properties: {
+                              commandLine: { type: 'string' },
+                              component: { type: 'string' },
+                            },
+                          },
+                        },
+                      },
+                    },
+                    components: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          name: { type: 'string' },
+                          attributes: { type: 'object', additionalProperties: true },
+                          container: {
+                            type: 'object',
+                            properties: {
+                              image: { type: 'string' },
+                              command: { type: 'array', items: { type: 'string' } },
+                              env: {
+                                type: 'array',
+                                items: {
+                                  type: 'object',
+                                  properties: {
+                                    name: { type: 'string' },
+                                    value: { type: 'string' },
+                                  },
+                                },
+                              },
+                              memoryLimit: { type: 'string' },
+                              memoryRequest: { type: 'string' },
+                              cpuLimit: { type: 'string' },
+                              cpuRequest: { type: 'string' },
+                              volumeMounts: {
+                                type: 'array',
+                                items: {
+                                  type: 'object',
+                                  properties: {
+                                    name: { type: 'string' },
+                                    path: { type: 'string' },
+                                  },
+                                },
+                              },
+                              endpoints: {
+                                type: 'array',
+                                items: {
+                                  type: 'object',
+                                  properties: {
+                                    name: { type: 'string' },
+                                    targetPort: { type: 'number' },
+                                    exposure: { type: 'string' },
+                                    protocol: { type: 'string' },
+                                    secure: { type: 'boolean' },
+                                    attributes: { type: 'object', additionalProperties: true },
+                                  },
+                                },
+                              },
+                            },
+                          },
+                          volume: { type: 'object' },
+                        },
+                      },
+                    },
+                    events: {
+                      type: 'object',
+                      properties: {
+                        preStart: { type: 'array', items: { type: 'string' } },
+                        postStart: { type: 'array', items: { type: 'string' } },
+                        preStop: { type: 'array', items: { type: 'string' } },
+                        postStop: { type: 'array', items: { type: 'string' } },
+                      },
+                    },
+                  },
+                },
+              },
+            },
           },
         },
       },
@@ -75,7 +341,7 @@ export async function registerDevWorkspaceTemplateRoutes(
         }
 
         const { namespace } = request.params;
-        
+
         // Use service account token for DevWorkspaceTemplate operations
         const serviceAccountToken = getServiceAccountToken();
         if (!serviceAccountToken) {
@@ -89,7 +355,10 @@ export async function registerDevWorkspaceTemplateRoutes(
         const service = new DevWorkspaceTemplateService(kubeConfig);
 
         const templates = await service.listInNamespace(namespace);
-        return reply.code(200).header('Content-Type', 'application/json').send(JSON.stringify(templates));
+        return reply
+          .code(200)
+          .header('Content-Type', 'application/json')
+          .send(JSON.stringify(templates));
       } catch (error: any) {
         fastify.log.error({ error }, 'Error listing DevWorkspaceTemplates');
         return reply.code(error.statusCode || 500).send({
@@ -124,23 +393,20 @@ export async function registerDevWorkspaceTemplateRoutes(
         response: {
           200: {
             description: 'DevWorkspaceTemplate details',
-            type: 'object',
+            ...DEVWORKSPACE_TEMPLATE_SCHEMA,
           },
         },
       },
       onRequest: [fastify.authenticate, fastify.requireAuth],
     },
-    async (
-      request: FastifyRequest<{ Params: NamespacedTemplateParams }>,
-      reply: FastifyReply,
-    ) => {
+    async (request: FastifyRequest<{ Params: NamespacedTemplateParams }>, reply: FastifyReply) => {
       try {
         if (!request.subject) {
           return reply.code(401).send({ error: 'Unauthorized' });
         }
 
         const { namespace, templateName } = request.params;
-        
+
         // Use service account token for DevWorkspaceTemplate operations
         const serviceAccountToken = getServiceAccountToken();
         if (!serviceAccountToken) {
@@ -154,7 +420,10 @@ export async function registerDevWorkspaceTemplateRoutes(
         const service = new DevWorkspaceTemplateService(kubeConfig);
 
         const template = await service.getByName(namespace, templateName);
-        return reply.code(200).header('Content-Type', 'application/json').send(JSON.stringify(template));
+        return reply
+          .code(200)
+          .header('Content-Type', 'application/json')
+          .send(JSON.stringify(template));
       } catch (error: any) {
         fastify.log.error({ error }, 'Error getting DevWorkspaceTemplate');
         return reply.code(error.statusCode || 500).send({
@@ -195,7 +464,7 @@ export async function registerDevWorkspaceTemplateRoutes(
         response: {
           201: {
             description: 'DevWorkspaceTemplate created',
-            type: 'object',
+            ...DEVWORKSPACE_TEMPLATE_SCHEMA,
           },
         },
       },
@@ -226,7 +495,10 @@ export async function registerDevWorkspaceTemplateRoutes(
         const service = new DevWorkspaceTemplateService(kubeConfig);
 
         const created = await service.create(namespace, template);
-        return reply.code(201).header('Content-Type', 'application/json').send(JSON.stringify(created));
+        return reply
+          .code(201)
+          .header('Content-Type', 'application/json')
+          .send(JSON.stringify(created));
       } catch (error: any) {
         fastify.log.error({ error }, 'Error creating DevWorkspaceTemplate');
         return reply.code(error.statusCode || 500).send({
@@ -274,7 +546,7 @@ export async function registerDevWorkspaceTemplateRoutes(
         response: {
           200: {
             description: 'DevWorkspaceTemplate updated',
-            type: 'object',
+            ...DEVWORKSPACE_TEMPLATE_SCHEMA,
           },
         },
       },
@@ -305,7 +577,10 @@ export async function registerDevWorkspaceTemplateRoutes(
         const service = new DevWorkspaceTemplateService(kubeConfig);
 
         const updated = await service.patch(namespace, templateName, patch);
-        return reply.code(200).header('Content-Type', 'application/json').send(JSON.stringify(updated));
+        return reply
+          .code(200)
+          .header('Content-Type', 'application/json')
+          .send(JSON.stringify(updated));
       } catch (error: any) {
         fastify.log.error({ error }, 'Error patching DevWorkspaceTemplate');
         return reply.code(error.statusCode || 500).send({
@@ -319,4 +594,3 @@ export async function registerDevWorkspaceTemplateRoutes(
   // Note: DELETE endpoint is NOT implemented as it's only available in local-run mode
   // in the original dashboard-backend implementation
 }
-
