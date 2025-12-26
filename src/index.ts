@@ -13,7 +13,9 @@
 import Fastify from 'fastify';
 import fastifyCors from '@fastify/cors';
 import dotenv from 'dotenv';
+import { authenticate, requireAuth } from './middleware/auth';
 import { setupSwagger } from './config/swagger';
+import { registerUserRoutes } from './routes/userRoutes';
 import { logger } from './utils/logger';
 import { exec } from 'child_process';
 
@@ -75,10 +77,14 @@ async function start() {
       hideOptionsRoute: true, // Hide automatic OPTIONS routes from schema
     });
 
+    // Register authentication hooks as decorators
+    fastify.decorate('authenticate', authenticate);
+    fastify.decorate('requireAuth', requireAuth);
+
     // Setup Swagger/OpenAPI documentation
     await setupSwagger(fastify);
 
-    // NOTE: Auth and /api routes are introduced in follow-up commits.
+    // NOTE: Additional /api routes are introduced in follow-up commits.
 
     // Health check endpoint (hidden from Swagger)
     fastify.get(
@@ -109,9 +115,13 @@ async function start() {
       },
     );
 
-    // Create a single '/api' group prefix (matches Java implementation).
-    // Routes are introduced step-by-step in follow-up commits.
-    await fastify.register(async () => {}, { prefix: '/api' });
+    // Register /api routes with prefix (matches Java implementation)
+    await fastify.register(
+      async apiInstance => {
+        await registerUserRoutes(apiInstance);
+      },
+      { prefix: '/api' },
+    );
 
     // Global error handler
     fastify.setErrorHandler((error: Error & { statusCode?: number }, request, reply) => {
