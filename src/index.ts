@@ -21,6 +21,7 @@ import { registerOAuth1Routes } from './routes/oauth1Routes';
 import { registerFactoryRoutes } from './routes/factoryRoutes';
 import { registerNamespaceRoutes } from './routes/namespaceRoutes';
 import { registerScmRoutes } from './routes/scmRoutes';
+import { registerSystemRoutes } from './routes/systemRoutes';
 import { logger } from './utils/logger';
 import { exec } from 'child_process';
 
@@ -129,6 +130,7 @@ async function start() {
         await registerFactoryRoutes(apiInstance);
         await registerNamespaceRoutes(apiInstance);
         await registerScmRoutes(apiInstance);
+        await registerSystemRoutes(apiInstance);
       },
       { prefix: '/api' },
     );
