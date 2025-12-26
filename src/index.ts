@@ -1,0 +1,247 @@
+/**
+ * Copyright (c) 2021-2025 Red Hat, Inc.
+ * This program and the accompanying materials are made
+ * available under the terms of the Eclipse Public License 2.0
+ * which is available at https://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
+ *
+ * Contributors:
+ *   Red Hat, Inc. - initial API and implementation
+ */
+
+import Fastify from 'fastify';
+import fastifyCors from '@fastify/cors';
+import dotenv from 'dotenv';
+import { logger } from './utils/logger';
+import { exec } from 'child_process';
+
+// Load environment variables
+dotenv.config();
+
+// Create Fastify instance
+const fastify = Fastify({
+  // Avoid log spam from frequent polling endpoints (e.g. /api/system/state)
+  // while still keeping explicit application logs and error logs.
+  disableRequestLogging: true,
+  logger: {
+    level: process.env.LOG_LEVEL || 'info',
+    transport:
+      process.env.NODE_ENV === 'development'
+        ? {
+            target: 'pino-pretty',
+            options: {
+              translateTime: 'HH:MM:ss Z',
+              ignore: 'pid,hostname',
+            },
+          }
+        : undefined,
+  },
+});
+
+// Use CHE_PORT if available (set by Che Operator)
+const PORT = Number(process.env.CHE_PORT || process.env.PORT) || 8080;
+// Always bind to 0.0.0.0 in containers
+// Note: CHE_HOST is the external hostname, not the bind address
+// Use CHE_BIND_ADDRESS or BIND_ADDRESS to override bind address
+const HOST = process.env.CHE_BIND_ADDRESS || process.env.BIND_ADDRESS || '0.0.0.0';
+
+// Register plugins and routes
+async function start() {
+  try {
+    // Register CORS FIRST - must be before any routes for proper OPTIONS handling
+    await fastify.register(fastifyCors, {
+      origin: true, // Allow all origins (Eclipse Che Gateway will be proxying)
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
+      allowedHeaders: [
+        'Content-Type',
+        'Authorization',
+        'gap-auth',
+        'Accept',
+        'Origin',
+        'X-Requested-With',
+        'X-Forwarded-Proto',
+        'X-Forwarded-Host',
+        'Access-Control-Request-Method',
+        'Access-Control-Request-Headers',
+      ],
+      exposedHeaders: ['Content-Disposition', 'Content-Type', 'Content-Length'],
+      maxAge: 86400, // 24 hours - cache preflight responses
+      preflightContinue: false, // Don't pass OPTIONS to route handlers
+      optionsSuccessStatus: 204, // Return 204 for successful OPTIONS
+      strictPreflight: false, // Be lenient with preflight requests
+      hideOptionsRoute: true, // Hide automatic OPTIONS routes from schema
+    });
+
+    // NOTE: Auth, Swagger, and /api routes are introduced in follow-up commits.
+
+    // Health check endpoint (hidden from Swagger)
+    fastify.get(
+      '/health',
+      {
+        schema: {
+          hide: true,
+          tags: ['health'],
+          summary: 'Health check',
+          description: 'Check if the API is running',
+          response: {
+            200: {
+              description: 'Service is healthy',
+              type: 'object',
+              properties: {
+                status: { type: 'string' },
+                timestamp: { type: 'string' },
+              },
+            },
+          },
+        },
+      },
+      async (request, reply) => {
+        return reply.code(200).send({
+          status: 'ok',
+          timestamp: new Date().toISOString(),
+        });
+      },
+    );
+
+    // Create a single '/api' group prefix (matches Java implementation).
+    // Routes are introduced step-by-step in follow-up commits.
+    await fastify.register(async () => {}, { prefix: '/api' });
+
+    // Global error handler
+    fastify.setErrorHandler((error: Error & { statusCode?: number }, request, reply) => {
+      fastify.log.error(error);
+
+      reply.status(error.statusCode || 500).send({
+        error: error.name || 'Internal Server Error',
+        message: error.message,
+        ...(process.env.NODE_ENV === 'development' && { stack: error.stack }),
+      });
+    });
+
+    // 404 handler
+    fastify.setNotFoundHandler((request, reply) => {
+      reply.status(404).send({
+        error: 'Not Found',
+        message: `Route ${request.method} ${request.url} not found`,
+      });
+    });
+
+    // Start the server
+    await fastify.listen({ port: PORT, host: HOST });
+    logger.info(`\n🚀 Eclipse Che Server (Fastify) is running on port ${PORT}`);
+    logger.info(`\n🔗 Endpoints:`);
+    logger.info(`   GET  http://localhost:${PORT}/health`);
+  } catch (err) {
+    fastify.log.error(err);
+    console.error('Error starting server:', err);
+
+    // Close the server properly before exiting
+    try {
+      await fastify.close();
+      logger.info('Server closed after startup error');
+    } catch (closeErr) {
+      logger.error({ error: closeErr }, 'Error closing server');
+    }
+
+    process.exit(1);
+  }
+}
+
+// Track if shutdown is already in progress
+let isShuttingDown = false;
+
+// Handle shutdown gracefully
+const shutdown = (signal: string) => {
+  if (isShuttingDown) {
+    logger.info({ signal }, 'Shutdown already in progress, ignoring signal');
+    return;
+  }
+
+  isShuttingDown = true;
+  logger.info(`\nReceived ${signal}, shutting down gracefully...`);
+
+  // Close the server
+  fastify
+    .close()
+    .then(() => {
+      // Using exec for simple commands
+      exec('lsof -ti tcp:8080 | xargs kill', (error, stdout, stderr) => {
+        if (error) {
+          logger.error({ error }, `exec error`);
+          return;
+        }
+        if (stdout) logger.info({ stdout }, `exec stdout`);
+        if (stderr) logger.error({ stderr }, `exec stderr`);
+      });
+      logger.info('Server closed successfully');
+      process.exit(0);
+    })
+    .catch(err => {
+      logger.error({ error: err }, 'Error during shutdown');
+      process.exit(1);
+    });
+
+  // Force exit after 5 seconds if graceful shutdown fails
+  const forceExitTimer = setTimeout(() => {
+    logger.error('Could not close connections in time, forcefully shutting down');
+    process.exit(1);
+  }, 5000);
+
+  // Unref the timer so it doesn't prevent Node.js from exiting if shutdown completes
+  forceExitTimer.unref();
+};
+
+// Handle different signals
+process.on('SIGINT', () => shutdown('SIGINT'));
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGUSR2', () => shutdown('SIGUSR2')); // Nodemon uses SIGUSR2
+
+// Uncaught exception handler
+process.on('uncaughtException', err => {
+  logger.error(
+    {
+      error: err,
+      message: err?.message || 'No message',
+      stack: err?.stack || 'No stack trace',
+      type: typeof err,
+      stringified: JSON.stringify(err),
+    },
+    'Uncaught exception - DETAILED',
+  );
+
+  // Don't shutdown on empty errors - they're likely handled elsewhere
+  if (!err || (typeof err === 'object' && Object.keys(err).length === 0)) {
+    logger.warn('Ignoring uncaught exception with empty error object');
+    return;
+  }
+
+  shutdown('uncaughtException');
+});
+
+// Unhandled rejection handler
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error(
+    {
+      reason,
+      reasonType: typeof reason,
+      reasonStringified: JSON.stringify(reason),
+      promise,
+    },
+    'Unhandled rejection - DETAILED',
+  );
+
+  // Don't shutdown on empty rejections
+  if (!reason || (typeof reason === 'object' && Object.keys(reason).length === 0)) {
+    logger.warn('Ignoring unhandled rejection with empty reason');
+    return;
+  }
+
+  shutdown('unhandledRejection');
+});
+
+// Start the application
+start();
+
+export default fastify;
