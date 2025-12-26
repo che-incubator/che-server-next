@@ -16,6 +16,7 @@ import dotenv from 'dotenv';
 import { authenticate, requireAuth } from './middleware/auth';
 import { setupSwagger } from './config/swagger';
 import { registerUserRoutes } from './routes/userRoutes';
+import { registerOAuthRoutes } from './routes/oauthRoutes';
 import { logger } from './utils/logger';
 import { exec } from 'child_process';
 
@@ -119,6 +120,7 @@ async function start() {
     await fastify.register(
       async apiInstance => {
         await registerUserRoutes(apiInstance);
+        await registerOAuthRoutes(apiInstance);
       },
       { prefix: '/api' },
     );
