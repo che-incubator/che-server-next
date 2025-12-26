@@ -17,6 +17,7 @@ import { authenticate, requireAuth } from './middleware/auth';
 import { setupSwagger } from './config/swagger';
 import { registerUserRoutes } from './routes/userRoutes';
 import { registerOAuthRoutes } from './routes/oauthRoutes';
+import { registerOAuth1Routes } from './routes/oauth1Routes';
 import { logger } from './utils/logger';
 import { exec } from 'child_process';
 
@@ -121,6 +122,7 @@ async function start() {
       async apiInstance => {
         await registerUserRoutes(apiInstance);
         await registerOAuthRoutes(apiInstance);
+        await registerOAuth1Routes(apiInstance);
       },
       { prefix: '/api' },
     );
