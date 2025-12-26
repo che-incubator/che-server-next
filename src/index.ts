@@ -13,6 +13,7 @@
 import Fastify from 'fastify';
 import fastifyCors from '@fastify/cors';
 import dotenv from 'dotenv';
+import { setupSwagger } from './config/swagger';
 import { logger } from './utils/logger';
 import { exec } from 'child_process';
 
@@ -74,7 +75,10 @@ async function start() {
       hideOptionsRoute: true, // Hide automatic OPTIONS routes from schema
     });
 
-    // NOTE: Auth, Swagger, and /api routes are introduced in follow-up commits.
+    // Setup Swagger/OpenAPI documentation
+    await setupSwagger(fastify);
+
+    // NOTE: Auth and /api routes are introduced in follow-up commits.
 
     // Health check endpoint (hidden from Swagger)
     fastify.get(
@@ -131,6 +135,10 @@ async function start() {
     // Start the server
     await fastify.listen({ port: PORT, host: HOST });
     logger.info(`\n🚀 Eclipse Che Server (Fastify) is running on port ${PORT}`);
+    logger.info(`\n📚 API Documentation:`);
+    logger.info(`   Swagger UI: http://localhost:${PORT}/swagger`);
+    logger.info(`   OpenAPI JSON: http://localhost:${PORT}/swagger/json`);
+    logger.info(`   OpenAPI YAML: http://localhost:${PORT}/swagger/yaml`);
     logger.info(`\n🔗 Endpoints:`);
     logger.info(`   GET  http://localhost:${PORT}/health`);
   } catch (err) {
