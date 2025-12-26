@@ -14,14 +14,14 @@ import Fastify from 'fastify';
 import fastifyCors from '@fastify/cors';
 import dotenv from 'dotenv';
 import { authenticate, requireAuth } from './middleware/auth';
-import { setupSwagger } from './config/swagger';
-import { registerUserRoutes } from './routes/userRoutes';
+import { registerNamespaceRoutes } from './routes/namespaceRoutes';
+import { registerFactoryRoutes } from './routes/factoryRoutes';
 import { registerOAuthRoutes } from './routes/oauthRoutes';
 import { registerOAuth1Routes } from './routes/oauth1Routes';
-import { registerFactoryRoutes } from './routes/factoryRoutes';
-import { registerNamespaceRoutes } from './routes/namespaceRoutes';
 import { registerScmRoutes } from './routes/scmRoutes';
 import { registerSystemRoutes } from './routes/systemRoutes';
+import { registerUserRoutes } from './routes/userRoutes';
+import { setupSwagger } from './config/swagger';
 import { logger } from './utils/logger';
 import { exec } from 'child_process';
 
@@ -90,8 +90,6 @@ async function start() {
     // Setup Swagger/OpenAPI documentation
     await setupSwagger(fastify);
 
-    // NOTE: Additional /api routes are introduced in follow-up commits.
-
     // Health check endpoint (hidden from Swagger)
     fastify.get(
       '/health',
@@ -121,16 +119,16 @@ async function start() {
       },
     );
 
-    // Register /api routes with prefix (matches Java implementation)
+    // Register route modules with /api prefix (matches Java implementation)
     await fastify.register(
       async apiInstance => {
-        await registerUserRoutes(apiInstance);
+        await registerNamespaceRoutes(apiInstance);
+        await registerFactoryRoutes(apiInstance);
         await registerOAuthRoutes(apiInstance);
         await registerOAuth1Routes(apiInstance);
-        await registerFactoryRoutes(apiInstance);
-        await registerNamespaceRoutes(apiInstance);
         await registerScmRoutes(apiInstance);
         await registerSystemRoutes(apiInstance);
+        await registerUserRoutes(apiInstance);
       },
       { prefix: '/api' },
     );
@@ -156,13 +154,32 @@ async function start() {
 
     // Start the server
     await fastify.listen({ port: PORT, host: HOST });
-    logger.info(`\n🚀 Eclipse Che Server (Fastify) is running on port ${PORT}`);
+
+    logger.info(`Che Server swagger is running on "http://localhost:${PORT}/swagger".`);
+    logger.info(`\n🚀 Eclipse Che Next API Server (Fastify) is running on port ${PORT}`);
     logger.info(`\n📚 API Documentation:`);
     logger.info(`   Swagger UI: http://localhost:${PORT}/swagger`);
     logger.info(`   OpenAPI JSON: http://localhost:${PORT}/swagger/json`);
     logger.info(`   OpenAPI YAML: http://localhost:${PORT}/swagger/yaml`);
     logger.info(`\n🔗 Endpoints:`);
-    logger.info(`   GET  http://localhost:${PORT}/health`);
+    logger.info(`\n   Kubernetes Namespace:`);
+    logger.info(`   POST http://localhost:${PORT}/api/kubernetes/namespace/provision`);
+    logger.info(`   GET  http://localhost:${PORT}/api/kubernetes/namespace`);
+    logger.info(`\n   Factory Resolver:`);
+    logger.info(`   POST http://localhost:${PORT}/api/factory/resolver`);
+    logger.info(`   POST http://localhost:${PORT}/api/factory/token/refresh`);
+    logger.info(`\n   OAuth:`);
+    logger.info(`   GET  http://localhost:${PORT}/api/oauth`);
+    logger.info(`   GET  http://localhost:${PORT}/api/oauth/token`);
+    logger.info(`   DELETE http://localhost:${PORT}/api/oauth/token`);
+    logger.info(`   GET  http://localhost:${PORT}/api/oauth/authenticate`);
+    logger.info(`   GET  http://localhost:${PORT}/api/oauth/callback`);
+    logger.info(`\n   SCM:`);
+    logger.info(`   GET  http://localhost:${PORT}/api/scm/resolve`);
+    logger.info(`\n   System:`);
+    logger.info(`   GET  http://localhost:${PORT}/api/system/state`);
+    logger.info(`\n   Health:`);
+    logger.info(`   GET  http://localhost:${PORT}/health\n`);
   } catch (err) {
     fastify.log.error(err);
     console.error('Error starting server:', err);
