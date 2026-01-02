@@ -119,6 +119,56 @@ async function start() {
       },
     );
 
+    // Kubernetes liveness probe endpoint
+    fastify.get(
+      '/healthz',
+      {
+        schema: {
+          hide: true,
+          tags: ['health'],
+          summary: 'Liveness probe',
+          description: 'Kubernetes liveness probe - indicates if the container is running',
+          response: {
+            200: {
+              description: 'Service is alive',
+              type: 'object',
+              properties: {
+                status: { type: 'string' },
+              },
+            },
+          },
+        },
+      },
+      async (request, reply) => {
+        return reply.code(200).send({ status: 'ok' });
+      },
+    );
+
+    // Kubernetes readiness probe endpoint
+    fastify.get(
+      '/readyz',
+      {
+        schema: {
+          hide: true,
+          tags: ['health'],
+          summary: 'Readiness probe',
+          description: 'Kubernetes readiness probe - indicates if the service is ready to accept traffic',
+          response: {
+            200: {
+              description: 'Service is ready',
+              type: 'object',
+              properties: {
+                status: { type: 'string' },
+              },
+            },
+          },
+        },
+      },
+      async (request, reply) => {
+        return reply.code(200).send({ status: 'ok' });
+      },
+    );
+
     // Register route modules with /api prefix (matches Java implementation)
     await fastify.register(
       async apiInstance => {
@@ -178,8 +228,10 @@ async function start() {
     logger.info(`   GET  http://localhost:${PORT}/api/scm/resolve`);
     logger.info(`\n   System:`);
     logger.info(`   GET  http://localhost:${PORT}/api/system/state`);
-    logger.info(`\n   Health:`);
-    logger.info(`   GET  http://localhost:${PORT}/health\n`);
+    logger.info(`\n   Health & Probes:`);
+    logger.info(`   GET  http://localhost:${PORT}/health`);
+    logger.info(`   GET  http://localhost:${PORT}/healthz   (liveness)`);
+    logger.info(`   GET  http://localhost:${PORT}/readyz    (readiness)\n`);
   } catch (err) {
     fastify.log.error(err);
     console.error('Error starting server:', err);
