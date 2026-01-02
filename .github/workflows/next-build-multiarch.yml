@@ -28,15 +28,11 @@ jobs:
 
   build-images:
     runs-on: ubuntu-22.04
-    continue-on-error: ${{ matrix.default == false }}
+    continue-on-error: ${{ matrix.arch == 'arm64' }}
     strategy:
       fail-fast: false
       matrix:
-        arch: [amd64]
-        default: [true]
-        include:
-          - arch: arm64
-            default: false
+        arch: [amd64, arm64]
     outputs:
       amd64: ${{ steps.result-amd64.outputs.tag }}
       arm64: ${{ steps.result-arm64.outputs.tag }}
@@ -77,7 +73,7 @@ jobs:
           context: ./${{ env.DIR_CHE_SERVER }}
           file: ./${{ env.DIR_CHE_SERVER }}/build/dockerfiles/Dockerfile
           platforms: linux/${{ matrix.arch }}
-          push: ${{ matrix.default == true }}
+          push: true
           provenance: false
           tags: ${{ env.ORGANIZATION }}/che-server:${{ matrix.arch }}-${{ env.IMAGE_VERSION }}
       -
@@ -87,7 +83,7 @@ jobs:
         run: |
           TAG="amd64-${{ env.IMAGE_VERSION }}"
           echo "tag=${TAG}" >> $GITHUB_OUTPUT
-          echo "Built amd64 tag: ${TAG}"
+          echo "Built and pushed amd64 tag: ${TAG}"
       -
         id: result-arm64
         name: "arm64 result"
@@ -95,7 +91,7 @@ jobs:
         run: |
           TAG="arm64-${{ env.IMAGE_VERSION }}"
           echo "tag=${TAG}" >> $GITHUB_OUTPUT
-          echo "Built arm64 tag: ${TAG}"
+          echo "Built and pushed arm64 tag: ${TAG}"
 
   create-manifest:
     needs: build-images
