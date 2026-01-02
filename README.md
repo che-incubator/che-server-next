@@ -314,7 +314,6 @@ che-server/
 ### Implementation Guides (`docs/`)
 - **[docs/NAMESPACE_PROVISIONING_IMPLEMENTATION.md](docs/NAMESPACE_PROVISIONING_IMPLEMENTATION.md)** - Kubernetes namespace provisioning
 - **[docs/OAUTH_IMPLEMENTATION.md](docs/OAUTH_IMPLEMENTATION.md)** - OAuth authentication implementation
-- **[docs/DASHBOARD_BACKEND_API_IMPLEMENTATION.md](docs/DASHBOARD_BACKEND_API_IMPLEMENTATION.md)** - DevWorkspace APIs
 - **[docs/swagger-examples.md](docs/swagger-examples.md)** - Swagger/OpenAPI usage examples
 
 ### Docker & Deployment

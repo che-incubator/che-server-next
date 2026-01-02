@@ -17,9 +17,9 @@ on:
     branches: ['*']
 
 env:
-  DIR_CHE_SERVER: che-server-next
+  DIR_CHE_SERVER: che-server
   IMAGE_VERSION: pr-${{ github.event.pull_request.number }}
-  ORGANIZATION: docker.io/olexii4dockerid
+  ORGANIZATION: quay.io/oorel
 
 jobs:
 

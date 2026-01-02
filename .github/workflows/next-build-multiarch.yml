@@ -22,7 +22,7 @@ on:
 env:
   DIR_CHE_SERVER: che-server
   IMAGE_VERSION: next
-  ORGANIZATION: docker.io/olexii4dockerid
+  ORGANIZATION: quay.io/oorel
 
 jobs:
 

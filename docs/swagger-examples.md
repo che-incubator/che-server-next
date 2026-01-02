@@ -445,6 +445,5 @@ See how long each request takes:
 
 For more details, see:
 
-- [SWAGGER_GUIDE.md](../SWAGGER_GUIDE.md) - Complete Swagger documentation
 - [README.md](../README.md) - Full API reference
-- [QUICKSTART.md](../QUICKSTART.md) - Getting started guide
+- [QUICK_START.md](../QUICK_START.md) - Getting started guide
