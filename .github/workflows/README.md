@@ -81,8 +81,8 @@ quay.io/oorel/che-server:1.0.0  # Multiarch manifest
 
 ### Required Secrets
 
-- `DOCKERHUB_USERNAME` - Docker Hub username
-- `DOCKERHUB_TOKEN` - Docker Hub access token
+- `QUAY_USERNAME` - Quay.io username
+- `QUAY_PASSWORD` - Quay.io password or robot token
 - `GITHUB_TOKEN` - Automatic (provided by GitHub)
 
 ---
@@ -157,8 +157,8 @@ quay.io/oorel/che-server:pr-123
 
 ### Required Secrets
 
-- `DOCKERHUB_USERNAME` - Docker Hub username
-- `DOCKERHUB_TOKEN` - Docker Hub access token
+- `QUAY_USERNAME` - Quay.io username
+- `QUAY_PASSWORD` - Quay.io password or robot token
 
 ---
 
@@ -218,18 +218,18 @@ Configure these secrets in your repository:
 
 | Secret | Description | Used By |
 |--------|-------------|---------|
-| `DOCKERHUB_USERNAME` | Docker Hub username | All workflows |
-| `DOCKERHUB_TOKEN` | Docker Hub access token | All workflows |
+| `QUAY_USERNAME` | Quay.io username | All workflows |
+| `QUAY_PASSWORD` | Quay.io password or robot token | All workflows |
 | `GITHUB_TOKEN` | GitHub token (automatic) | Release workflow |
 
-### Creating Docker Hub Access Token
+### Creating Quay.io Robot Token
 
-1. Login to [Docker Hub](https://hub.docker.com)
-2. Go to: **Account Settings** → **Security**
-3. Click: **New Access Token**
-4. Name: `GitHub Actions`
-5. Permissions: **Read & Write**
-6. Copy token and save to GitHub Secrets
+1. Login to [Quay.io](https://quay.io)
+2. Go to: **Account Settings** → **Robot Accounts**
+3. Click: **Create Robot Account**
+4. Name: `github_actions`
+5. Permissions: **Write** to your repositories
+6. Copy username and token and save to GitHub Secrets as `QUAY_USERNAME` and `QUAY_PASSWORD`
 
 ---
 
@@ -315,14 +315,14 @@ yarn test
 yarn lint:check
 ```
 
-### Workflow Fails: "Login to Docker Hub failed"
+### Workflow Fails: "Login to quay.io failed"
 
-**Cause:** Missing or invalid Docker Hub credentials
+**Cause:** Missing or invalid Quay.io credentials
 
 **Fix:**
 1. Verify secrets are set correctly
-2. Use access token, not password
-3. Check token permissions (Read & Write)
+2. Use robot token or password
+3. Check token permissions (Write access to repositories)
 
 ### ARM64 Build Fails
 
