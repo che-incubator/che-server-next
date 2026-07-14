@@ -25,5 +25,3 @@ describe('OAuth1Service redirect_after_login encoding (Java parity)', () => {
     expect(getRedirectAfterLoginUrl(params)).toBe('https://redirecturl.com?params=%7B%7D');
   });
 });
-
-

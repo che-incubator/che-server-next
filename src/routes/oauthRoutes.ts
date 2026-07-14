@@ -210,7 +210,10 @@ export async function registerOAuthRoutes(fastify: FastifyInstance): Promise<voi
         const namespace = `${request.subject.userName}-che`;
 
         // First: check in-memory token cache (dev/testing only)
-        const memToken = await oauthService.getOrRefreshToken(request.subject.userId, oauthProvider);
+        const memToken = await oauthService.getOrRefreshToken(
+          request.subject.userId,
+          oauthProvider,
+        );
         if (memToken) {
           return reply.code(200).send(memToken);
         }
@@ -363,7 +366,10 @@ export async function registerOAuthRoutes(fastify: FastifyInstance): Promise<voi
           }
         } catch (err) {
           // Treat as best-effort; revocation should not fail the UI flow.
-          fastify.log.warn({ err, namespace, oauthProvider }, 'Failed to delete oauth PAT secret(s)');
+          fastify.log.warn(
+            { err, namespace, oauthProvider },
+            'Failed to delete oauth PAT secret(s)',
+          );
         }
 
         // Idempotent revoke: always return 204

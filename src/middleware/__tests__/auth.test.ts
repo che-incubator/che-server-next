@@ -10,7 +10,7 @@
  *   Red Hat, Inc. - initial API and implementation
  */
 
-import { authenticate, requireAuth, Subject } from '../auth';
+import { authenticate, requireAuth } from '../auth';
 import { FastifyRequest, FastifyReply } from 'fastify';
 
 describe('Authentication Middleware', () => {

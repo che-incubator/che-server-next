@@ -65,6 +65,11 @@ module.exports = {
     // disabled to avoid conflicts with prettier
     quotes: 'off',
 
+    '@typescript-eslint/no-unused-vars': [
+      'error',
+      { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+    ],
+
     // TODO enable rules below and fix errors
     '@typescript-eslint/explicit-module-boundary-types': 'off',
     '@typescript-eslint/no-explicit-any': 'off',

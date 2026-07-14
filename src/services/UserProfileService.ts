@@ -44,7 +44,7 @@ export class UserProfileService {
    */
   async getUserProfile(namespace: string): Promise<UserProfile> {
     logger.info({ namespace, secretName: USER_PROFILE_SECRET_NAME }, '📋 Getting user profile');
-    
+
     try {
       const response = await this.coreV1Api.readNamespacedSecret(
         USER_PROFILE_SECRET_NAME,
@@ -53,7 +53,10 @@ export class UserProfileService {
 
       const data = response.body.data;
       if (!data) {
-        logger.warn({ namespace }, '⚠️  User profile secret exists but has NO DATA, returning default');
+        logger.warn(
+          { namespace },
+          '⚠️  User profile secret exists but has NO DATA, returning default',
+        );
         return this.getDefaultProfile(namespace);
       }
 
@@ -63,22 +66,34 @@ export class UserProfileService {
         email: Buffer.from(data.email || '', 'base64').toString(),
       };
 
-      logger.info({ namespace, userId: profile.id, username: profile.username }, '✅ User profile found in Secret');
+      logger.info(
+        { namespace, userId: profile.id, username: profile.username },
+        '✅ User profile found in Secret',
+      );
       return profile;
     } catch (error: any) {
       // Check if it's a 404 (Secret not found)
       const statusCode = error.statusCode || error.response?.statusCode;
 
       if (statusCode === 404) {
-        logger.warn({ namespace, secretName: USER_PROFILE_SECRET_NAME }, '❌ User profile secret NOT FOUND - creating it now');
-        
+        logger.warn(
+          { namespace, secretName: USER_PROFILE_SECRET_NAME },
+          '❌ User profile secret NOT FOUND - creating it now',
+        );
+
         // Create the Secret with default profile
         try {
           const profile = await this.createUserProfileSecret(namespace);
-          logger.info({ namespace, userId: profile.id, username: profile.username }, '✅ User profile secret CREATED successfully');
+          logger.info(
+            { namespace, userId: profile.id, username: profile.username },
+            '✅ User profile secret CREATED successfully',
+          );
           return profile;
         } catch (createError: any) {
-          logger.error({ error: createError, namespace }, '❌ Failed to create user profile secret, returning default');
+          logger.error(
+            { error: createError, namespace },
+            '❌ Failed to create user profile secret, returning default',
+          );
           return this.getDefaultProfile(namespace);
         }
       }
@@ -126,9 +141,12 @@ export class UserProfileService {
     };
 
     await this.coreV1Api.createNamespacedSecret(namespace, secret);
-    
-    logger.info({ namespace, secretName: USER_PROFILE_SECRET_NAME }, '✅ Secret created successfully');
-    
+
+    logger.info(
+      { namespace, secretName: USER_PROFILE_SECRET_NAME },
+      '✅ Secret created successfully',
+    );
+
     return profile;
   }
 

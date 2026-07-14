@@ -39,7 +39,7 @@ export class WorkspacePreferencesService {
 
   /**
    * Get workspace preferences
-   * 
+   *
    * If the ConfigMap doesn't exist, it will be created automatically
    * (matching Java PreferencesConfigMapConfigurator behavior)
    */
@@ -98,10 +98,7 @@ export class WorkspacePreferencesService {
   async ensureConfigMapExists(namespace: string): Promise<void> {
     try {
       // Check if ConfigMap exists
-      await this.coreV1Api.readNamespacedConfigMap(
-        DEV_WORKSPACE_PREFERENCES_CONFIGMAP,
-        namespace,
-      );
+      await this.coreV1Api.readNamespacedConfigMap(DEV_WORKSPACE_PREFERENCES_CONFIGMAP, namespace);
       logger.debug({ namespace }, 'Workspace preferences ConfigMap already exists');
     } catch (error: any) {
       if (error.statusCode === 404 || error.response?.statusCode === 404) {

@@ -91,7 +91,9 @@ export class PatLookupService {
       );
 
       const secrets = response.body.items;
-      logger.info(`[PatLookupService] Found ${secrets.length} PAT secrets in namespace "${namespace}"`);
+      logger.info(
+        `[PatLookupService] Found ${secrets.length} PAT secrets in namespace "${namespace}"`,
+      );
 
       // Filter by SCM provider
       for (const secret of secrets) {
@@ -149,7 +151,9 @@ export class PatLookupService {
         };
       }
 
-      logger.info(`[PatLookupService] No PAT found for provider "${scmProvider}" in namespace "${namespace}"`);
+      logger.info(
+        `[PatLookupService] No PAT found for provider "${scmProvider}" in namespace "${namespace}"`,
+      );
       return null;
     } catch (error: any) {
       // Check if it's a 404 (namespace not found) or 403 (no permission)
@@ -158,9 +162,7 @@ export class PatLookupService {
         return null;
       }
       if (error.response?.statusCode === 403) {
-        logger.warn(
-          `[PatLookupService] No permission to list secrets in namespace "${namespace}"`,
-        );
+        logger.warn(`[PatLookupService] No permission to list secrets in namespace "${namespace}"`);
         return null;
       }
 
@@ -298,4 +300,3 @@ export class PatLookupService {
 export function getUserNamespace(username: string): string {
   return `${username}-che`;
 }
-

@@ -627,7 +627,8 @@ export class ScmRepositoryFactoryResolver extends BaseFactoryParameterResolver {
   private generateFactoryLinks(repositoryUrl: string): Link[] {
     // Get the base URL for API server (from environment)
     // Use CHE_API_ENDPOINT if available, otherwise construct from request
-    const apiEndpoint = process.env.CHE_API || process.env.CHE_API_ENDPOINT || 'http://localhost:8080';
+    const apiEndpoint =
+      process.env.CHE_API || process.env.CHE_API_ENDPOINT || 'http://localhost:8080';
 
     const links: Link[] = [];
 

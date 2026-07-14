@@ -395,9 +395,9 @@ describe('BitbucketFileResolver', () => {
         statusText: 'Not Found',
       });
 
-      await expect(resolver.fileContent('https://bitbucket.org/workspace/repo', '')).rejects.toThrow(
-        UnauthorizedException,
-      );
+      await expect(
+        resolver.fileContent('https://bitbucket.org/workspace/repo', ''),
+      ).rejects.toThrow(UnauthorizedException);
     });
   });
 
