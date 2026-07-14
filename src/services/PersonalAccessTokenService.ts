@@ -199,9 +199,7 @@ export class PersonalAccessTokenService {
     }
 
     // When isOauth is true, prefix with 'oauth2-' so it can be detected later
-    const tokenNameAnnotation = token.isOauth
-      ? `oauth2-${token.gitProvider}`
-      : token.gitProvider;
+    const tokenNameAnnotation = token.isOauth ? `oauth2-${token.gitProvider}` : token.gitProvider;
 
     const annotations: { [key: string]: string } = {
       'che.eclipse.org/che-userid': token.cheUserId,

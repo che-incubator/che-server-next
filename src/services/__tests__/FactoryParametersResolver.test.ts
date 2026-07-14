@@ -440,7 +440,7 @@ describe('ScmRepositoryFactoryResolver', () => {
       };
 
       const factory = (await resolver.createFactory(parameters)) as FactoryDevfileV2;
-      
+
       // Should return basic factory with empty devfile structure
       expect(factory.source).toBe('repo');
       expect(factory.devfile.schemaVersion).toBe('2.3.0');

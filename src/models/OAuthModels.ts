@@ -18,8 +18,6 @@
  * - org.eclipse.che.security.oauth.shared.dto.OAuthAuthenticatorDescriptor
  */
 
-import { Link } from './FactoryModels';
-
 /**
  * OAuth Token
  *

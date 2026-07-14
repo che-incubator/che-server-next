@@ -58,20 +58,25 @@ export class UserPermissionConfigurator {
    */
   constructor(kubeConfig: k8s.KubeConfig, config?: Partial<UserPermissionConfig>) {
     this.rbacApi = kubeConfig.makeApiClient(k8s.RbacAuthorizationV1Api);
-    
+
     // Load configuration from environment or use provided config
     this.userClusterRoles = this.loadUserClusterRoles(config);
-    
+
     if (this.userClusterRoles.length > 0) {
-      logger.info({ userClusterRoles: this.userClusterRoles }, 'UserPermissionConfigurator initialized with ClusterRoles');
+      logger.info(
+        { userClusterRoles: this.userClusterRoles },
+        'UserPermissionConfigurator initialized with ClusterRoles',
+      );
     } else {
-      logger.info('UserPermissionConfigurator initialized with no ClusterRoles (user RBAC binding disabled)');
+      logger.info(
+        'UserPermissionConfigurator initialized with no ClusterRoles (user RBAC binding disabled)',
+      );
     }
   }
 
   /**
    * Load user cluster roles from configuration or environment.
-   * 
+   *
    * @param config - Optional configuration
    * @returns Array of ClusterRole names
    */
@@ -88,7 +93,10 @@ export class UserPermissionConfigurator {
         // Explicitly disabled (matches Java behavior where NULL means disabled)
         return [];
       }
-      return envRoles.split(',').map(role => role.trim()).filter(role => role.length > 0);
+      return envRoles
+        .split(',')
+        .map(role => role.trim())
+        .filter(role => role.length > 0);
     }
 
     // Default: disabled unless explicitly configured by Che
@@ -105,13 +113,16 @@ export class UserPermissionConfigurator {
    */
   async configure(namespaceName: string, username: string): Promise<void> {
     if (this.userClusterRoles.length === 0) {
-      logger.debug({ namespaceName, username }, 'Skipping user permission configuration (no ClusterRoles configured)');
+      logger.debug(
+        { namespaceName, username },
+        'Skipping user permission configuration (no ClusterRoles configured)',
+      );
       return;
     }
 
     logger.info(
       { namespaceName, username, clusterRoles: this.userClusterRoles },
-      '🔐 Configuring user permissions (creating RoleBindings)'
+      '🔐 Configuring user permissions (creating RoleBindings)',
     );
 
     await this.bindRoles(namespaceName, username, this.userClusterRoles);
@@ -131,7 +142,7 @@ export class UserPermissionConfigurator {
   private async bindRoles(
     namespaceName: string,
     username: string,
-    clusterRoles: string[]
+    clusterRoles: string[],
   ): Promise<void> {
     for (const clusterRole of clusterRoles) {
       try {
@@ -140,7 +151,7 @@ export class UserPermissionConfigurator {
         // Log warning but continue with other bindings
         logger.warn(
           { error: error.message, namespaceName, username, clusterRole },
-          '⚠️ Failed to create RoleBinding'
+          '⚠️ Failed to create RoleBinding',
         );
       }
     }
@@ -156,7 +167,7 @@ export class UserPermissionConfigurator {
   private async createOrUpdateRoleBinding(
     namespaceName: string,
     username: string,
-    clusterRoleName: string
+    clusterRoleName: string,
   ): Promise<void> {
     // Use a deterministic name based on username and role
     // This ensures idempotency - same user/role combo always gets same binding name
@@ -191,7 +202,7 @@ export class UserPermissionConfigurator {
       await this.rbacApi.createNamespacedRoleBinding(namespaceName, roleBinding);
       logger.info(
         { namespaceName, username, clusterRole: clusterRoleName, bindingName },
-        '✅ Created RoleBinding'
+        '✅ Created RoleBinding',
       );
     } catch (error: any) {
       if (error.statusCode === 409) {
@@ -199,13 +210,18 @@ export class UserPermissionConfigurator {
         await this.rbacApi.replaceNamespacedRoleBinding(bindingName, namespaceName, roleBinding);
         logger.info(
           { namespaceName, username, clusterRole: clusterRoleName, bindingName },
-          '✅ Updated existing RoleBinding'
+          '✅ Updated existing RoleBinding',
         );
       } else if (error.statusCode === 403) {
         // Forbidden - log specific error for RBAC issues
         logger.error(
-          { namespaceName, username, clusterRole: clusterRoleName, error: error.body?.message || error.message },
-          '❌ Forbidden: Cannot create RoleBinding (check che-server ServiceAccount permissions)'
+          {
+            namespaceName,
+            username,
+            clusterRole: clusterRoleName,
+            error: error.body?.message || error.message,
+          },
+          '❌ Forbidden: Cannot create RoleBinding (check che-server ServiceAccount permissions)',
         );
         throw error;
       } else {
@@ -231,7 +247,7 @@ export class UserPermissionConfigurator {
 
     // Create name like: che-user-<username>-<clusterrole>
     let name = `${sanitizedUsername}-${clusterRoleName}`;
-    
+
     // Ensure total length doesn't exceed 63 characters
     if (name.length > 63) {
       name = name.substring(0, 63);
@@ -291,11 +307,10 @@ export class UserPermissionConfigurator {
         if (error.statusCode !== 404) {
           logger.warn(
             { error: error.message, namespaceName, username, bindingName },
-            'Failed to delete RoleBinding'
+            'Failed to delete RoleBinding',
           );
         }
       }
     }
   }
 }
-

@@ -60,9 +60,10 @@ export class BitbucketServerFileResolver implements ScmFileResolver {
       throw new Error(`Invalid Bitbucket Server repository URL: ${repository}`);
     }
 
-    const tryLocations = (filePath && filePath.trim().length > 0)
-      ? [{ filename: filePath, location: parsed.rawFileLocation(filePath) }]
-      : parsed.devfileFileLocations();
+    const tryLocations =
+      filePath && filePath.trim().length > 0
+        ? [{ filename: filePath, location: parsed.rawFileLocation(filePath) }]
+        : parsed.devfileFileLocations();
 
     const errors: string[] = [];
     for (const location of tryLocations) {
@@ -97,13 +98,19 @@ export class BitbucketServerFileResolver implements ScmFileResolver {
     } else if (userContext?.userId) {
       // OAuth1 signature fallback (requires OAuth1 flow to be completed)
       try {
-        const { getOAuth1Service, BitbucketServerOAuth1Authenticator } = await import('./OAuth1Service');
+        const { getOAuth1Service, BitbucketServerOAuth1Authenticator } = await import(
+          './OAuth1Service'
+        );
         const oauth1 = getOAuth1Service();
         const auth = oauth1.getAuthenticator(BitbucketServerOAuth1Authenticator.NAME);
         if (!auth) {
           throw new Error('OAuth1 provider not configured');
         }
-        headers['Authorization'] = auth.computeAuthorizationHeader(userContext.userId, 'GET', rawUrl);
+        headers['Authorization'] = auth.computeAuthorizationHeader(
+          userContext.userId,
+          'GET',
+          rawUrl,
+        );
       } catch {
         const apiEndpoint =
           process.env.CHE_API || process.env.CHE_API_ENDPOINT || 'http://localhost:8080';
@@ -510,8 +517,7 @@ export class GitHubFileResolver implements ScmFileResolver {
 
     // GitHub API doesn't support 'HEAD' as ref - we need to get the default branch
     // or try common branch names
-    const branchesToTry =
-      ref === 'HEAD' ? ['main', 'master', 'HEAD'] : [ref, 'main', 'master'];
+    const branchesToTry = ref === 'HEAD' ? ['main', 'master', 'HEAD'] : [ref, 'main', 'master'];
 
     const headers: Record<string, string> = {
       Authorization: authorization,
@@ -543,9 +549,7 @@ export class GitHubFileResolver implements ScmFileResolver {
           typeof axiosResponse.data === 'object'
             ? JSON.stringify(axiosResponse.data)
             : axiosResponse.data;
-        logger.info(
-          `[GitHubFileResolver] GitHub API auth error: ${errorMessage}`,
-        );
+        logger.info(`[GitHubFileResolver] GitHub API auth error: ${errorMessage}`);
 
         const oauthProvider = 'github';
         const authenticateUrl = buildOAuthAuthenticateUrl(
@@ -829,7 +833,8 @@ export class BitbucketFileResolver implements ScmFileResolver {
 
   constructor() {
     // Get API endpoint from environment or use default
-    this.apiEndpoint = process.env.CHE_API || process.env.CHE_API_ENDPOINT || 'http://localhost:8080';
+    this.apiEndpoint =
+      process.env.CHE_API || process.env.CHE_API_ENDPOINT || 'http://localhost:8080';
   }
 
   accept(repository: string): boolean {
@@ -892,10 +897,7 @@ export class BitbucketFileResolver implements ScmFileResolver {
       throw new Error('Unable to parse repository URL');
     }
 
-    // Import BitbucketUrl type for type checking
-    const { BitbucketUrl } = require('./UrlParsers');
-    const isBitbucketUrl =
-      parsedUrl instanceof BitbucketUrl || parsedUrl.providerName === 'bitbucket';
+    const isBitbucketUrl = parsedUrl.providerName === 'bitbucket';
 
     // Determine which branches to try
     // Bitbucket doesn't resolve HEAD, so try common default branches
@@ -994,10 +996,7 @@ export class BitbucketFileResolver implements ScmFileResolver {
       );
     }
 
-    // Import BitbucketUrl type for type checking
-    const { BitbucketUrl } = require('./UrlParsers');
-    const isBitbucketUrl =
-      parsedUrl instanceof BitbucketUrl || parsedUrl.providerName === 'bitbucket';
+    const isBitbucketUrl = parsedUrl.providerName === 'bitbucket';
 
     const currentBranch = parsedUrl.branch || 'HEAD';
 
@@ -1276,7 +1275,11 @@ export class BitbucketFileResolver implements ScmFileResolver {
 export class AzureDevOpsFileResolver implements ScmFileResolver {
   private readonly apiEndpoint: string;
 
-  constructor(apiEndpoint: string = process.env.CHE_API || process.env.CHE_API_ENDPOINT || 'http://localhost:8080') {
+  constructor(
+    apiEndpoint: string = process.env.CHE_API ||
+      process.env.CHE_API_ENDPOINT ||
+      'http://localhost:8080',
+  ) {
     this.apiEndpoint = apiEndpoint;
   }
 

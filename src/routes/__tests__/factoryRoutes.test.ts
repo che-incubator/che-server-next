@@ -230,9 +230,6 @@ describe('Factory Routes (Fastify)', () => {
         },
       });
 
-      const body = JSON.parse(response.body);
-      console.log('Response status:', response.statusCode);
-
       expect([200, 400, 500]).toContain(response.statusCode);
     });
   });

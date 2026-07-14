@@ -50,6 +50,7 @@ describe('AzureDevOpsApiClient', () => {
     mockedAxios.create = jest.fn().mockReturnValue(mockAxiosInstance);
 
     // Setup getCertificateAuthority mocks
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const { axiosInstanceNoCert } = require('../../../helpers/getCertificateAuthority');
     axiosInstanceNoCert.create = jest.fn().mockReturnValue(mockAxiosInstance);
 

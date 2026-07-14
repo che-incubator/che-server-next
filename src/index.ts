@@ -152,7 +152,8 @@ async function start() {
           hide: true,
           tags: ['health'],
           summary: 'Readiness probe',
-          description: 'Kubernetes readiness probe - indicates if the service is ready to accept traffic',
+          description:
+            'Kubernetes readiness probe - indicates if the service is ready to accept traffic',
           response: {
             200: {
               description: 'Service is ready',

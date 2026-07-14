@@ -376,7 +376,10 @@ export class BitbucketUrl implements RemoteFactoryUrl {
       );
 
       // Bitbucket Cloud only (avoid matching Bitbucket Server which often includes "bitbucket" in hostname)
-      if (!normalizedUrl.includes('bitbucket.org') && !normalizedUrl.includes('api.bitbucket.org')) {
+      if (
+        !normalizedUrl.includes('bitbucket.org') &&
+        !normalizedUrl.includes('api.bitbucket.org')
+      ) {
         return null;
       }
 
@@ -473,7 +476,8 @@ export class BitbucketServerUrl implements RemoteFactoryUrl {
   }
 
   rawFileLocation(filename: string): string {
-    const at = this.branch && this.branch !== 'HEAD' ? `?at=${encodeURIComponent(this.branch)}` : '';
+    const at =
+      this.branch && this.branch !== 'HEAD' ? `?at=${encodeURIComponent(this.branch)}` : '';
     if (this.project) {
       return `${this.serverUrl}/rest/api/1.0/projects/${encodeURIComponent(this.project)}/repos/${encodeURIComponent(this.repository)}/raw/${filename}${at}`;
     }
@@ -502,7 +506,20 @@ export class BitbucketServerUrl implements RemoteFactoryUrl {
       const serverUrl = `${urlObj.protocol}//${urlObj.host}`;
       const path = urlObj.pathname;
       const pathParts = path.split('/').filter(Boolean);
-      const branch = urlObj.searchParams.get('at') || 'HEAD';
+
+      // Normalize the `at` query parameter — strip `refs/heads/` and `refs%2Fheads%2F` prefixes.
+      // Mirrors the Java fix in BitbucketServerURLParser to guard against empty/null branch values.
+      let branch = 'HEAD';
+      const atParam = urlObj.searchParams.get('at');
+      if (atParam) {
+        if (atParam.startsWith('refs/heads/')) {
+          branch = atParam.substring('refs/heads/'.length);
+        } else if (atParam.startsWith('refs%2Fheads%2F')) {
+          branch = atParam.substring('refs%2Fheads%2F'.length);
+        } else {
+          branch = atParam;
+        }
+      }
 
       // /scm/~user/repo.git
       if (pathParts[0] === 'scm' && pathParts.length >= 3) {
@@ -510,7 +527,14 @@ export class BitbucketServerUrl implements RemoteFactoryUrl {
         let repo = pathParts[2];
         if (repo.endsWith('.git')) repo = repo.slice(0, -4);
         if (owner.startsWith('~')) {
-          return new BitbucketServerUrl(serverUrl, repo, branch, devfileFilenames, undefined, owner.slice(1));
+          return new BitbucketServerUrl(
+            serverUrl,
+            repo,
+            branch,
+            devfileFilenames,
+            undefined,
+            owner.slice(1),
+          );
         }
         return new BitbucketServerUrl(serverUrl, repo, branch, devfileFilenames, owner, undefined);
       }
@@ -522,7 +546,14 @@ export class BitbucketServerUrl implements RemoteFactoryUrl {
         if (reposIdx > 0 && pathParts.length > reposIdx + 1) {
           const project = pathParts[projectIdx];
           const repo = pathParts[reposIdx + 1];
-          return new BitbucketServerUrl(serverUrl, repo, branch, devfileFilenames, project, undefined);
+          return new BitbucketServerUrl(
+            serverUrl,
+            repo,
+            branch,
+            devfileFilenames,
+            project,
+            undefined,
+          );
         }
       }
 
