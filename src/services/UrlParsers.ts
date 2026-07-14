@@ -502,7 +502,20 @@ export class BitbucketServerUrl implements RemoteFactoryUrl {
       const serverUrl = `${urlObj.protocol}//${urlObj.host}`;
       const path = urlObj.pathname;
       const pathParts = path.split('/').filter(Boolean);
-      const branch = urlObj.searchParams.get('at') || 'HEAD';
+
+      // Normalize the `at` query parameter — strip `refs/heads/` and `refs%2Fheads%2F` prefixes.
+      // Mirrors the Java fix in BitbucketServerURLParser to guard against empty/null branch values.
+      let branch = 'HEAD';
+      const atParam = urlObj.searchParams.get('at');
+      if (atParam) {
+        if (atParam.startsWith('refs/heads/')) {
+          branch = atParam.substring('refs/heads/'.length);
+        } else if (atParam.startsWith('refs%2Fheads%2F')) {
+          branch = atParam.substring('refs%2Fheads%2F'.length);
+        } else {
+          branch = atParam;
+        }
+      }
 
       // /scm/~user/repo.git
       if (pathParts[0] === 'scm' && pathParts.length >= 3) {

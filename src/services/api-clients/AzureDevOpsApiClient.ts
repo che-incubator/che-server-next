@@ -95,6 +95,14 @@ export class AzureDevOpsApiClient implements ScmApiClient {
    */
   async getUser(token: string): Promise<AzureDevOpsUser | null> {
     try {
+      // Validate URL before making request — invalid URLs throw TypeError in Node.js
+      // (equivalent to Java's IllegalArgumentException from URI.create())
+      try {
+        new URL(`${this.apiServerUrl}/_apis/profile/profiles/me`);
+      } catch {
+        throw new Error(`${SCM_API_ERRORS.BAD_REQUEST}: Invalid server URL: ${this.apiServerUrl}`);
+      }
+
       // Azure DevOps Profile API endpoint
       const response = await this.makeRequest('get', `/_apis/profile/profiles/me`, {
         params: {
